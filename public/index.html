@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文档浏览系统</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { if (typeof mermaid !== 'undefined') mermaid.initialize({ startOnLoad: false, theme: 'neutral' }); });</script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <button class="btn btn-sm btn-icon" id="btn-toggle-sidebar" title="隐藏文件树">
+        <i class="fa-solid fa-angles-left"></i>
+      </button>
+      <span class="logo"><i class="fa-solid fa-book"></i> 文档浏览系统</span>
+    </div>
+    <div class="header-center">
+      <nav class="breadcrumb" id="breadcrumb"></nav>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-sm" id="btn-import" title="从本地目录导入文档">
+        <i class="fa-solid fa-file-import"></i> 导入文档
+      </button>
+      <button class="btn btn-sm btn-icon" id="btn-fullscreen" title="全屏">
+        <i class="fa-solid fa-expand"></i>
+      </button>
+      <button class="btn-theme" id="btn-theme" title="切换暗色模式">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <div class="app-body">
+    <!-- Left panel: Directory Tree -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-toolbar">
+        <div class="sidebar-toolbar-row">
+          <button class="btn btn-sm btn-icon" id="btn-search-mode" title="切换文件名/全文搜索">
+            <i class="fa-solid fa-font"></i>
+          </button>
+          <input type="text" class="search-input" id="tree-search" placeholder="搜索文件...">
+          <button class="btn btn-sm btn-icon" id="btn-refresh-tree" title="刷新目录">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+          <button class="btn btn-sm btn-icon" id="btn-collapse-all" title="折叠全部">
+            <i class="fa-solid fa-compress"></i>
+          </button>
+          <button class="btn btn-sm btn-icon" id="btn-expand-all" title="展开全部">
+            <i class="fa-solid fa-expand"></i>
+          </button>
+        </div>
+        <div class="search-results hidden" id="search-results"></div>
+      </div>
+      <div class="tree-container" id="tree-container">
+        <div class="loading">加载目录中...</div>
+      </div>
+      <div class="sidebar-resize-handle" id="sidebar-resize"></div>
+    </aside>
+
+    <!-- Right panel: Content -->
+    <main class="content" id="content">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon"><i class="fa-solid fa-book-open"></i></div>
+        <h2>欢迎使用文档浏览系统</h2>
+        <p>在左侧目录树中选择一个文件来查看内容</p>
+
+        <!-- Stats dashboard -->
+        <div class="stats-dashboard" id="stats-dashboard">
+          <div class="stats-cards">
+            <div class="stat-card">
+              <div class="stat-number" id="stat-files">-</div>
+              <div class="stat-label">文档总数</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="stat-projects">-</div>
+              <div class="stat-label">项目数</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="stat-modules">-</div>
+              <div class="stat-label">模块数</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="stat-size">-</div>
+              <div class="stat-label">总大小</div>
+            </div>
+          </div>
+          <div class="stats-recent" id="stats-recent">
+            <h4>📝 最近修改</h4>
+            <div class="recent-list" id="recent-list"></div>
+          </div>
+        </div>
+
+        <div class="welcome-tips">
+          <h3>快捷键</h3>
+          <div class="shortcut-grid">
+            <div class="shortcut-item"><kbd>Ctrl+P</kbd> 搜索文件</div>
+            <div class="shortcut-item"><kbd>Ctrl+Shift+F</kbd> 全文搜索</div>
+            <div class="shortcut-item"><kbd>Ctrl+B</kbd> 侧边栏</div>
+            <div class="shortcut-item"><kbd>Ctrl+E</kbd> 编辑</div>
+            <div class="shortcut-item"><kbd>Ctrl+S</kbd> 保存</div>
+            <div class="shortcut-item"><kbd>F11</kbd> 全屏</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- File viewer -->
+      <div class="viewer hidden" id="viewer">
+        <div class="viewer-header">
+          <div class="viewer-header-left">
+            <h2 class="viewer-title" id="viewer-title"></h2>
+            <span class="viewer-meta" id="viewer-meta"></span>
+          </div>
+          <div class="viewer-header-actions">
+            <button class="btn btn-sm" id="btn-edit" title="编辑 (Ctrl+E)">
+              <i class="fa-solid fa-pen-to-square"></i> 编辑
+            </button>
+            <button class="btn btn-sm btn-success hidden" id="btn-save-edit" title="保存 (Ctrl+S)">
+              <i class="fa-solid fa-check"></i> 保存
+            </button>
+            <button class="btn btn-sm hidden" id="btn-cancel-edit" title="取消编辑">
+              <i class="fa-solid fa-xmark"></i> 取消
+            </button>
+          </div>
+        </div>
+        <div class="viewer-content markdown-body" id="viewer-content"></div>
+        <textarea class="viewer-editor hidden" id="viewer-editor"></textarea>
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <span id="footer-status">就绪</span>
+  </footer>
+
+  <!-- Context menu -->
+  <div class="context-menu hidden" id="context-menu">
+    <div class="context-menu-item" data-action="refresh"><i class="fa-solid fa-rotate"></i> 刷新目录</div>
+  </div>
+
+  <!-- Import modal -->
+  <div class="modal-overlay hidden" id="import-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span><i class="fa-solid fa-file-import"></i> 导入文档</span>
+        <button class="modal-close" id="import-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-tabs">
+          <button class="modal-tab active" data-tab="picker"><i class="fa-solid fa-folder-open"></i> 选择文件夹</button>
+          <button class="modal-tab" data-tab="path"><i class="fa-solid fa-keyboard"></i> 输入路径</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-picker">
+          <div class="import-picker-area" id="picker-area">
+            <div class="picker-icon"><i class="fa-solid fa-folder-plus"></i></div>
+            <div class="picker-text" id="picker-text">点击选择本地文件夹</div>
+            <div class="picker-path hidden" id="picker-path"></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-path">
+          <div class="import-path-row">
+            <input type="text" class="import-path-input" id="path-input"
+              placeholder="输入本地目录路径，如 D:\my-docs\project">
+            <button class="btn btn-sm" id="path-scan-btn"><i class="fa-solid fa-magnifying-glass"></i> 扫描</button>
+          </div>
+        </div>
+
+        <div class="import-file-list" id="import-file-list">
+          <div class="import-file-empty" id="import-file-empty">请先选择来源目录</div>
+        </div>
+        <div class="import-file-summary hidden" id="import-file-summary"></div>
+
+        <div class="import-target">
+          <div class="import-target-label">
+            <i class="fa-solid fa-folder-tree"></i> 目标位置
+            <button class="btn btn-sm" id="import-change-target">更改</button>
+          </div>
+          <div class="import-target-display">
+            <span class="target-path" id="import-target-path">(请先在左侧目录树中选择一个目录)</span>
+          </div>
+          <div class="import-target-tree hidden" id="import-target-tree"></div>
+        </div>
+
+        <div class="import-conflict">
+          <div class="import-conflict-label">同名文件处理</div>
+          <div class="import-conflict-options">
+            <label><input type="radio" name="onConflict" value="rename" checked> 自动重命名</label>
+            <label><input type="radio" name="onConflict" value="overwrite"> 覆盖</label>
+            <label><input type="radio" name="onConflict" value="skip"> 跳过</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="import-cancel">取消</button>
+        <button class="btn btn-success" id="import-confirm" disabled><i class="fa-solid fa-check"></i> 确认导入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+  <script>
+    if (typeof marked === 'undefined') {
+      document.write('<script src="/js/lib/marked.min.js"><\/script>');
+    }
+  </script>
+  <script src="/js/app.js"></script>
+  <script src="/js/tree.js"></script>
+  <script src="/js/viewer.js"></script>
+  <script src="/js/import.js"></script>
+
+</body>
+</html>
