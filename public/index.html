@@ -17,9 +17,6 @@
     document.addEventListener('DOMContentLoaded', () => {
       if (typeof mermaid !== 'undefined') {
         mermaid.initialize({ startOnLoad: false, theme: 'neutral' });
-        console.log('[Mermaid] 已加载, 版本: ' + (mermaid.version || 'unknown'));
-      } else {
-        console.warn('[Mermaid] 未能加载，流程图将无法渲染');
       }
     });
   </script>
@@ -59,7 +56,9 @@
           <button class="btn btn-sm btn-icon" id="btn-search-mode" title="切换文件名/全文搜索">
             <i class="fa-solid fa-font"></i>
           </button>
-          <input type="text" class="search-input" id="tree-search" placeholder="搜索文件...">
+          <span class="search-wrap">
+            <input type="text" class="search-input" id="tree-search" placeholder="搜索文件...">
+          </span>
           <button class="btn btn-sm btn-icon" id="btn-refresh-tree" title="刷新目录">
             <i class="fa-solid fa-rotate"></i>
           </button>

@@ -187,8 +187,7 @@ a:hover { text-decoration: underline; }
 }
 
 .search-input {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   padding: 7px 10px 7px 32px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
@@ -207,8 +206,12 @@ a:hover { text-decoration: underline; }
 
 .search-input::placeholder { color: var(--stone); }
 
-.sidebar-toolbar-row { position: relative; }
-.sidebar-toolbar-row::before {
+.search-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.search-wrap::before {
   content: '\f002';
   font-family: 'Font Awesome 6 Free';
   font-weight: 900;

@@ -78,10 +78,7 @@ const Viewer = {
 
   // Render Mermaid code blocks (返回 Promise，等图表全部渲染完)
   renderMermaid() {
-    if (typeof mermaid === 'undefined') {
-      console.warn('[Mermaid] mermaid 全局未定义，跳过渲染');
-      return Promise.resolve();
-    }
+    if (typeof mermaid === 'undefined') return Promise.resolve();
     let found = 0;
     const nodes = [];
     App.$viewerContent.find('pre code').each(function () {
@@ -97,14 +94,10 @@ const Viewer = {
       nodes.push($mermaid[0]);
     });
     if (found > 0) {
-      console.log('[Mermaid] 检测到 ' + found + ' 个图表');
       const self = this;
       return mermaid.run({ nodes: nodes }).then(() => {
-        console.log('[Mermaid] run() 完成');
         nodes.forEach(function (node) { self._addMermaidEdit(node); });
-      }).catch((err) => {
-        console.warn('[Mermaid] run() 失败', err);
-      });
+      }).catch(() => {});
     }
     return Promise.resolve();
   },
@@ -147,8 +140,7 @@ const Viewer = {
         const id = 'mermaid-' + Math.random().toString(36).substring(2, 8);
         mermaid.render(id, newSource).then(function (result) {
           $pre.html(result.svg);
-        }).catch(function (err) {
-          console.warn('[Mermaid] 重新渲染失败', err);
+        }).catch(function () {
           $pre.text(newSource); // 回退显示源码
         });
       } else {
