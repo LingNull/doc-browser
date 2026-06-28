@@ -24,7 +24,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/YOUR_USERNAME/doc-browser.git
+git clone https://github.com/LingNull/doc-browser.git
 cd doc-browser
 
 # 启动（零依赖，无需 npm install）
