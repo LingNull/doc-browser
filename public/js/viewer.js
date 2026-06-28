@@ -69,31 +69,98 @@ const Viewer = {
         $pre.append($btn);
       });
 
-      // Render Mermaid diagrams
-      this.renderMermaid();
+      // Render Mermaid diagrams（异步，存储 Promise 供 saveEdit 等待）
+      this._mermaidReady = this.renderMermaid();
     } catch (err) {
       App.$viewerContent.html(`<p class="error">Markdown 渲染失败: ${App.escapeHTML(err.message)}</p>`);
     }
   },
 
-  // Render Mermaid code blocks
+  // Render Mermaid code blocks (返回 Promise，等图表全部渲染完)
   renderMermaid() {
-    if (typeof mermaid === 'undefined') return;
+    if (typeof mermaid === 'undefined') {
+      console.warn('[Mermaid] mermaid 全局未定义，跳过渲染');
+      return Promise.resolve();
+    }
+    let found = 0;
+    const nodes = [];
     App.$viewerContent.find('pre code').each(function () {
       const $code = $(this);
       const text = $code.text().trim();
       if (!text.match(/^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|gitGraph|mindmap|timeline)/)) return;
 
+      found++;
       const $pre = $code.parent();
-      const id = 'mermaid-' + Math.random().toString(36).substring(2, 8);
-      $pre.after(`<div class="mermaid-container" id="${id}"></div>`);
-      $pre.hide();
+      const $mermaid = $(document.createElement('pre'));
+      $mermaid.addClass('mermaid').text(text).attr('data-mermaid-source', text);
+      $pre.replaceWith($mermaid);
+      nodes.push($mermaid[0]);
+    });
+    if (found > 0) {
+      console.log('[Mermaid] 检测到 ' + found + ' 个图表');
+      const self = this;
+      return mermaid.run({ nodes: nodes }).then(() => {
+        console.log('[Mermaid] run() 完成');
+        nodes.forEach(function (node) { self._addMermaidEdit(node); });
+      }).catch((err) => {
+        console.warn('[Mermaid] run() 失败', err);
+      });
+    }
+    return Promise.resolve();
+  },
 
-      try {
-        mermaid.render(id, text).then(({ svg }) => {
-          $('#' + id).html(svg);
-        }).catch(() => { $pre.show(); $('#' + id).remove(); });
-      } catch { $pre.show(); }
+  // 为单个 Mermaid 图表添加编辑按钮
+  _addMermaidEdit(preEl) {
+    const $pre = $(preEl);
+    // 包裹容器
+    const $wrap = $(document.createElement('div'));
+    $wrap.addClass('mermaid-wrap');
+    $pre.before($wrap);
+    $wrap.append($pre);
+
+    // 编辑按钮
+    const $btn = $('<button class="btn btn-xs mermaid-edit-btn" title="编辑此图"><i class="fa-solid fa-pen-to-square"></i></button>');
+    $wrap.append($btn);
+
+    $btn.on('click', function () {
+      if ($pre.hasClass('editing')) {
+        // 保存：取新源码，用 mermaid.render 重新渲染
+        const newSource = $pre.find('textarea').val().trim();
+        const oldSource = $pre.attr('data-mermaid-source') || '';
+
+        // 持久化：替换文件内容中的旧源码 → 新源码，写入磁盘
+        if (newSource !== oldSource && Viewer.currentFile) {
+          Viewer.currentFile.content = Viewer.currentFile.content.replace(oldSource, newSource);
+          $('#viewer-editor').val(Viewer.currentFile.content);
+          $.ajax({
+            url: '/api/save',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ path: Viewer.currentFile.path, content: Viewer.currentFile.content }),
+          });
+        }
+
+        $pre.attr('data-mermaid-source', newSource);
+        $pre.removeClass('editing').addClass('mermaid').empty();
+        $btn.html('<i class="fa-solid fa-pen-to-square"></i>').attr('title', '编辑此图');
+
+        const id = 'mermaid-' + Math.random().toString(36).substring(2, 8);
+        mermaid.render(id, newSource).then(function (result) {
+          $pre.html(result.svg);
+        }).catch(function (err) {
+          console.warn('[Mermaid] 重新渲染失败', err);
+          $pre.text(newSource); // 回退显示源码
+        });
+      } else {
+        // 进入编辑：显示 textarea
+        const source = $pre.attr('data-mermaid-source') || '';
+        $pre.addClass('editing').removeClass('mermaid').empty();
+        const $ta = $(document.createElement('textarea'));
+        $ta.val(source).addClass('mermaid-editor').attr('spellcheck', 'false');
+        $pre.append($ta);
+        $ta.focus();
+        $btn.html('<i class="fa-solid fa-check"></i>').attr('title', '保存并渲染');
+      }
     });
   },
 
@@ -116,10 +183,25 @@ const Viewer = {
 
   startEdit() {
     this.editing = true;
+    // 保存滚动比例（0~1），适应预览→编辑的高度变化
+    const $content = $('.content');
+    const maxScroll = $content[0].scrollHeight - $content.height();
+    this._scrollRatio = maxScroll > 0 ? $content.scrollTop() / maxScroll : 0;
+
     this.updateUIForEdit();
-    $('#viewer-editor').val(this.currentFile.content).removeClass('hidden').focus();
+    const $editor = $('#viewer-editor');
+    $editor.val(this.currentFile.content).removeClass('hidden');
     App.$viewerContent.addClass('hidden');
+    $('#viewer').addClass('editing');
     App.setStatus('编辑中...');
+
+    // 等布局后按比例滚动 textarea 到对应源码位置
+    requestAnimationFrame(() => {
+      const ta = $editor[0];
+      const taMax = ta.scrollHeight - ta.clientHeight;
+      ta.scrollTop = this._scrollRatio * Math.max(0, taMax);
+      ta.focus({ preventScroll: true });
+    });
   },
 
   async saveEdit() {
@@ -139,6 +221,7 @@ const Viewer = {
       this.editing = false;
       this.updateUIForView();
       $('#viewer-editor').addClass('hidden');
+      $('#viewer').removeClass('editing');
       App.$viewerContent.removeClass('hidden');
 
       // Re-render
@@ -147,6 +230,16 @@ const Viewer = {
       } else {
         this.renderText(newContent);
       }
+
+      // 等 Mermaid 图表全部渲染完再按比例恢复滚动位置
+      const ratio = this._scrollRatio || 0;
+      (this._mermaidReady || Promise.resolve()).then(() => {
+        requestAnimationFrame(() => {
+          const $c = $('.content');
+          const max = $c[0].scrollHeight - $c.height();
+          $c.scrollTop(ratio * Math.max(0, max));
+        });
+      });
 
       App.toast('保存成功', 'success');
       App.setStatus('就绪');
@@ -160,7 +253,12 @@ const Viewer = {
     this.editing = false;
     this.updateUIForView();
     $('#viewer-editor').addClass('hidden');
+    $('#viewer').removeClass('editing');
     App.$viewerContent.removeClass('hidden');
+    // 按比例恢复预览滚动位置
+    const $c = $('.content');
+    const max = $c[0].scrollHeight - $c.height();
+    $c.scrollTop((this._scrollRatio || 0) * Math.max(0, max));
     App.setStatus('就绪');
   },
 
